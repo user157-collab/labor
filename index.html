@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026년 8월 근로형태별 부가조사 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --secondary: #2e6da4;
+    --accent: #e85d04;
+    --accent2: #f48c06;
+    --regular: #2196F3;
+    --nonregular: #FF5722;
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --text: #1a2535;
+    --text-light: #6b7a90;
+    --border: #dde3ec;
+    --shadow: 0 2px 12px rgba(30,58,95,0.10);
+    --shadow-hover: 0 6px 24px rgba(30,58,95,0.18);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Malgun Gothic', '맑은 고딕', 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── 헤더 ── */
+  header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: #fff;
+    padding: 24px 32px 20px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 1.55rem; font-weight: 700; line-height: 1.3; }
+  header p  { font-size: 0.82rem; opacity: 0.75; margin-top: 4px; }
+  header .badge {
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  /* ── 탭 네비 ── */
+  nav {
+    background: var(--primary);
+    display: flex;
+    gap: 2px;
+    padding: 0 24px;
+    overflow-x: auto;
+  }
+  nav button {
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.65);
+    padding: 12px 20px;
+    font-size: 0.88rem;
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 3px solid transparent;
+    transition: all .2s;
+    font-family: inherit;
+  }
+  nav button:hover  { color: #fff; }
+  nav button.active { color: #fff; border-bottom-color: var(--accent2); font-weight: 700; }
+
+  /* ── 메인 ── */
+  main { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── KPI 카드 그리드 ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px 20px 16px;
+    box-shadow: var(--shadow);
+    border-top: 4px solid var(--secondary);
+    transition: box-shadow .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card:hover { box-shadow: var(--shadow-hover); }
+  .kpi-card.up   { border-top-color: #e53935; }
+  .kpi-card.down { border-top-color: #43a047; }
+  .kpi-card.warn { border-top-color: var(--accent); }
+  .kpi-card .label { font-size: 0.78rem; color: var(--text-light); font-weight: 600; margin-bottom: 6px; }
+  .kpi-card .value { font-size: 1.9rem; font-weight: 800; color: var(--primary); line-height: 1; }
+  .kpi-card .unit  { font-size: 0.82rem; color: var(--text-light); margin-left: 2px; }
+  .kpi-card .delta {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 0.8rem; font-weight: 700; margin-top: 8px;
+    padding: 2px 8px; border-radius: 20px;
+  }
+  .delta.pos { background: #ffebee; color: #c62828; }
+  .delta.neg { background: #e8f5e9; color: #2e7d32; }
+  .delta.neu { background: #f3f4f6; color: #6b7a90; }
+  .kpi-card .sub { font-size: 0.75rem; color: var(--text-light); margin-top: 6px; }
+
+  /* ── 차트 그리드 ── */
+  .chart-grid {
+    display: grid;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .col-2 { grid-template-columns: repeat(2, 1fr); }
+  .col-3 { grid-template-columns: repeat(3, 1fr); }
+  .col-1-2 { grid-template-columns: 1fr 2fr; }
+  .col-2-1 { grid-template-columns: 2fr 1fr; }
+
+  .chart-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px 20px 16px;
+    box-shadow: var(--shadow);
+    transition: box-shadow .2s;
+  }
+  .chart-card:hover { box-shadow: var(--shadow-hover); }
+  .chart-card.span-2 { grid-column: span 2; }
+  .chart-card.span-3 { grid-column: span 3; }
+
+  .chart-card h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+  .chart-card .sub-desc {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    margin-bottom: 14px;
+  }
+  .chart-wrap { position: relative; }
+  .chart-wrap canvas { max-height: 320px; }
+  .chart-wrap.tall canvas { max-height: 400px; }
+  .chart-wrap.short canvas { max-height: 220px; }
+
+  /* ── 테이블 ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  thead th {
+    background: var(--primary);
+    color: #fff;
+    padding: 10px 12px;
+    text-align: center;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody tr:nth-child(even) { background: #f7f9fb; }
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    white-space: nowrap;
+  }
+  tbody td:first-child { text-align: left; font-weight: 600; }
+  tbody td.center { text-align: center; }
+  td.pos { color: #c62828; font-weight: 700; }
+  td.neg { color: #2e7d32; font-weight: 700; }
+
+  /* ── 필터 ── */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-bar label { font-size: 0.82rem; color: var(--text-light); font-weight: 600; }
+  .filter-bar select, .filter-bar button {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+    background: #fff;
+    color: var(--text);
+  }
+  .filter-bar button { background: var(--secondary); color: #fff; border-color: var(--secondary); }
+
+  /* ── 색상 범례 ── */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* ── 출처 ── */
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 0.75rem;
+    color: var(--text-light);
+    border-top: 1px solid var(--border);
+    margin-top: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .col-2, .col-3, .col-1-2, .col-2-1 { grid-template-columns: 1fr; }
+    .chart-card.span-2, .chart-card.span-3 { grid-column: 1; }
+    main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📊 근로형태별 부가조사 대시보드</h1>
+    <p>2026년 8월 경제활동인구조사 근로형태별 부가조사 결과 | 보도: 2026.10.21.</p>
+  </div>
+  <span class="badge">기준: 2026년 8월</span>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('overview')">🏠 종합 현황</button>
+  <button onclick="showTab('trend')">📈 추세 분석</button>
+  <button onclick="showTab('structure')">🔍 구조 분석</button>
+  <button onclick="showTab('workcond')">💼 근로조건</button>
+  <button onclick="showTab('region')">🗺️ 시도별 현황</button>
+</nav>
+
+<main>
+
+<!-- ===== TAB 1: 종합 현황 ===== -->
+<div id="tab-overview" class="tab-content active">
+
+  <!-- KPI 카드 -->
+  <div class="kpi-grid">
+    <div class="kpi-card up">
+      <div class="label">임금근로자</div>
+      <div class="value">22,526<span class="unit">천명</span></div>
+      <div class="delta pos">▲ 113천명 (전년대비)</div>
+      <div class="sub">2025년: 22,413천명</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">정규직</div>
+      <div class="value">13,855<span class="unit">천명</span></div>
+      <div class="delta pos">▲ 10천명</div>
+      <div class="sub">비중: 61.5%</div>
+    </div>
+    <div class="kpi-card up">
+      <div class="label">비정규직</div>
+      <div class="value">8,671<span class="unit">천명</span></div>
+      <div class="delta pos">▲ 103천명</div>
+      <div class="sub">비중: 38.5%</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="label">비정규직 비중</div>
+      <div class="value">38.5<span class="unit">%</span></div>
+      <div class="delta pos">▲ 0.3%p</div>
+      <div class="sub">여성 47.0% / 남성 31.0%</div>
+    </div>
+    <div class="kpi-card up">
+      <div class="label">한시적 근로자</div>
+      <div class="value">6,035<span class="unit">천명</span></div>
+      <div class="delta pos">▲ 187천명</div>
+      <div class="sub">비정규직 중 69.6%</div>
+    </div>
+    <div class="kpi-card up">
+      <div class="label">시간제 근로자</div>
+      <div class="value">4,382<span class="unit">천명</span></div>
+      <div class="delta pos">▲ 153천명</div>
+      <div class="sub">비정규직 중 50.5%</div>
+    </div>
+    <div class="kpi-card down">
+      <div class="label">비전형 근로자</div>
+      <div class="value">1,786<span class="unit">천명</span></div>
+      <div class="delta neg">▼ 48천명</div>
+      <div class="sub">비정규직 중 20.6%</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="label">60세이상 비정규직 비중</div>
+      <div class="value">36.7<span class="unit">%</span></div>
+      <div class="delta pos">▲ 1.2%p</div>
+      <div class="sub">2019년 25.9% → 지속 증가</div>
+    </div>
+  </div>
+
+  <!-- 임금 KPI -->
+  <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); margin-bottom:24px;">
+    <div class="kpi-card">
+      <div class="label">월평균임금 (임금근로자)</div>
+      <div class="value">330.5<span class="unit">만원</span></div>
+      <div class="delta pos">▲ 10.0만원</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">월평균임금 (정규직)</div>
+      <div class="value">405.2<span class="unit">만원</span></div>
+      <div class="delta pos">▲ 15.6만원</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="label">월평균임금 (비정규직)</div>
+      <div class="value">211.2<span class="unit">만원</span></div>
+      <div class="delta pos">▲ 2.4만원</div>
+      <div class="sub">정규직 대비 52.1% 수준</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">고용보험 가입률 (비정규직)</div>
+      <div class="value">54.0<span class="unit">%</span></div>
+      <div class="delta pos">▲ 0.3%p</div>
+      <div class="sub">정규직: 93.0%</div>
+    </div>
+  </div>
+
+  <!-- 메인 차트 -->
+  <div class="chart-grid col-2">
+    <div class="chart-card">
+      <h3>비정규직 규모 및 비중 추이 (2019~2026)</h3>
+      <div class="sub-desc">전체 임금근로자 기준 | 단위: 천명, %</div>
+      <div class="chart-wrap">
+        <canvas id="ch_overview_trend"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>2026년 성별 근로형태 구성</h3>
+      <div class="sub-desc">임금근로자 중 정규직·비정규직 비중 | 단위: 천명</div>
+      <div class="chart-wrap">
+        <canvas id="ch_gender_bar"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>비정규직 유형별 규모 추이</h3>
+      <div class="sub-desc">한시적·시간제·비전형 (중복포함) | 단위: 천명</div>
+      <div class="chart-wrap">
+        <canvas id="ch_type_trend"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>정규직 vs 비정규직 월평균임금 비교</h3>
+      <div class="sub-desc">2026년 기준 임금 격차 | 단위: 만원</div>
+      <div class="chart-wrap">
+        <canvas id="ch_wage_compare"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-overview -->
+
+
+<!-- ===== TAB 2: 추세 분석 ===== -->
+<div id="tab-trend" class="tab-content">
+
+  <div class="chart-grid" style="grid-template-columns:1fr;">
+    <div class="chart-card">
+      <h3>임금근로자 근로형태별 규모 추이 (2019~2026, 성별 선택)</h3>
+      <div class="filter-bar">
+        <label>성별:</label>
+        <select id="genderFilter" onchange="updateTrendChart()">
+          <option value="전체">전체</option>
+          <option value="남자">남자</option>
+          <option value="여자">여자</option>
+        </select>
+      </div>
+      <div class="chart-wrap tall">
+        <canvas id="ch_trend_main"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid col-2">
+    <div class="chart-card">
+      <h3>비정규직 비중 추이 — 성별 비교</h3>
+      <div class="sub-desc">임금근로자 중 비정규직 비중(%) | 2019~2026</div>
+      <div class="chart-wrap">
+        <canvas id="ch_ratio_gender"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>비정규직 연도별 증감</h3>
+      <div class="sub-desc">전년대비 증감 천명 | 전체 기준</div>
+      <div class="chart-wrap">
+        <canvas id="ch_nonreg_delta"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:20px;">
+    <h3>임금근로자 근로형태별 규모 상세 데이터 (2019~2026, 전체)</h3>
+    <div class="sub-desc">단위: 천명, %</div>
+    <div class="table-wrap" style="margin-top:12px;">
+      <table>
+        <thead>
+          <tr>
+            <th>연도</th><th>임금근로자</th><th>정규직</th><th>비정규직</th>
+            <th>비중(%)</th><th>한시적</th><th>시간제</th><th>비전형</th>
+          </tr>
+        </thead>
+        <tbody id="trend_table"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /tab-trend -->
+
+
+<!-- ===== TAB 3: 구조 분석 ===== -->
+<div id="tab-structure" class="tab-content">
+
+  <div class="chart-grid col-2">
+    <div class="chart-card">
+      <h3>연령계층별 비정규직 비중 추이</h3>
+      <div class="sub-desc">비정규직 중 연령별 구성비(%) | 2019~2026</div>
+      <div class="chart-wrap tall">
+        <canvas id="ch_age_trend"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>2026년 연령계층별 비정규직 구성</h3>
+      <div class="sub-desc">도넛 차트 | 비정규직 8,671천명 기준</div>
+      <div class="chart-wrap">
+        <canvas id="ch_age_donut"></canvas>
+      </div>
+    </div>
+    <div class="chart-card span-2">
+      <h3>산업별 비정규직 비중 (2019 → 2026 비교)</h3>
+      <div class="sub-desc">비정규직 중 산업별 구성비(%) | 주요 산업 비교</div>
+      <div class="chart-wrap tall">
+        <canvas id="ch_industry"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>직업별 비정규직 비중 (2026년)</h3>
+      <div class="sub-desc">비정규직 중 직업별 구성비(%) | 2026년</div>
+      <div class="chart-wrap">
+        <canvas id="ch_job_2026"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>직업별 비중 추이 (2019 vs 2026)</h3>
+      <div class="sub-desc">주요 직업군 비중 변화</div>
+      <div class="chart-wrap">
+        <canvas id="ch_job_compare"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-structure -->
+
+
+<!-- ===== TAB 4: 근로조건 ===== -->
+<div id="tab-workcond" class="tab-content">
+
+  <div class="chart-grid col-2">
+    <div class="chart-card">
+      <h3>월평균임금 추이 (2019~2026)</h3>
+      <div class="sub-desc">정규직 vs 비정규직 | 단위: 만원</div>
+      <div class="chart-wrap">
+        <canvas id="ch_wage_trend"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>평균 근속기간 추이</h3>
+      <div class="sub-desc">정규직 vs 비정규직 | 단위: 개월</div>
+      <div class="chart-wrap">
+        <canvas id="ch_tenure"></canvas>
+      </div>
+    </div>
+    <div class="chart-card span-2">
+      <h3>사회보험 가입률 비교 (2026년)</h3>
+      <div class="sub-desc">국민연금·건강보험·고용보험 | 임금근로자 / 정규직 / 비정규직</div>
+      <div class="chart-wrap">
+        <canvas id="ch_insurance_2026"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>고용보험 가입률 추이</h3>
+      <div class="sub-desc">정규직 vs 비정규직 | 2019~2026 (%)</div>
+      <div class="chart-wrap">
+        <canvas id="ch_employment_ins"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>근로복지 수혜율 비교 (2026년)</h3>
+      <div class="sub-desc">퇴직급여·상여금·시간외수당·유급휴가 | 정규직 vs 비정규직 (%)</div>
+      <div class="chart-wrap">
+        <canvas id="ch_welfare"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 근로조건 상세 테이블 -->
+  <div class="chart-card" style="margin-bottom:20px;">
+    <h3>근로조건 지표 상세 (2026년, 전체)</h3>
+    <div class="table-wrap" style="margin-top:12px;">
+      <table>
+        <thead><tr><th>지표</th><th>단위</th><th>임금근로자</th><th>정규직</th><th>비정규직</th><th>정비 대비 비정규직(%)</th></tr></thead>
+        <tbody id="workcond_table"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /tab-workcond -->
+
+
+<!-- ===== TAB 5: 시도별 현황 ===== -->
+<div id="tab-region" class="tab-content">
+
+  <div class="chart-grid col-2">
+    <div class="chart-card span-2">
+      <h3>시도별 비정규직 규모 비교 (2026년)</h3>
+      <div class="sub-desc">임금근로자·정규직·비정규직 | 단위: 천명 (전국 제외)</div>
+      <div class="chart-wrap tall">
+        <canvas id="ch_region_bar"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>시도별 비정규직 비율 (2026년)</h3>
+      <div class="sub-desc">임금근로자 중 비정규직 비중(%) | 전국 38.5%</div>
+      <div class="chart-wrap tall">
+        <canvas id="ch_region_ratio"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>시도별 비정규직 전년대비 증감</h3>
+      <div class="sub-desc">2026년 - 2025년 | 단위: 천명</div>
+      <div class="chart-wrap tall">
+        <canvas id="ch_region_delta"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:20px;">
+    <h3>시도별 상세 현황 (2025 → 2026)</h3>
+    <div class="table-wrap" style="margin-top:12px;">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2">시도</th>
+            <th colspan="3">2025년 (천명)</th>
+            <th colspan="3">2026년 (천명)</th>
+            <th colspan="3">증감 (천명)</th>
+            <th>비정규직비율(%)</th>
+          </tr>
+          <tr>
+            <th>임금근로자</th><th>정규직</th><th>비정규직</th>
+            <th>임금근로자</th><th>정규직</th><th>비정규직</th>
+            <th>임금근로자</th><th>정규직</th><th>비정규직</th>
+            <th>2026</th>
+          </tr>
+        </thead>
+        <tbody id="region_table"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /tab-region -->
+
+</main>
+
+<footer>
+  출처: 통계청 「2026년 8월 경제활동인구조사 근로형태별 부가조사 결과」(2026.10.21. 보도) &nbsp;|&nbsp;
+  매년 8월 기준 조사 &nbsp;|&nbsp; 한시적·시간제·비전형 중복포함으로 합계 불일치
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════
+const YEARS = [2019,2020,2021,2022,2023,2024,2025,2026];
+
+const TREND = {
+  전체: {
+    wage:    [20559,20446,20992,21724,21954,22143,22413,22526],
+    regular: [13078,13020,12927,13568,13832,13685,13845,13855],
+    nonreg:  [7481, 7426, 8066, 8156, 8122, 8459, 8568, 8671],
+    ratio:   [36.4, 36.3, 38.4, 37.5, 37.0, 38.2, 38.2, 38.5],
+    hanse:   [4785, 4608, 5171, 5348, 5259, 5628, 5848, 6035],
+    sigan:   [3156, 3252, 3512, 3687, 3873, 4256, 4229, 4382],
+    bijeon:  [2045, 2073, 2278, 2131, 1957, 1903, 1834, 1786],
+  },
+  남자: {
+    wage:    [11396,11361,11517,11936,11927,11908,11953,11965],
+    regular: [8040, 8027, 7941, 8283, 8370, 8293, 8302, 8258],
+    nonreg:  [3356, 3335, 3575, 3653, 3557, 3615, 3650, 3708],
+    ratio:   [29.4, 29.4, 31.0, 30.6, 29.8, 30.4, 30.5, 31.0],
+    hanse:   [2238, 2079, 2234, 2368, 2349, 2470, 2570, 2706],
+    sigan:   [846,  915,  1011, 1125, 1143, 1240, 1187, 1245],
+    bijeon:  [1125, 1212, 1342, 1209, 1090, 1065, 1006, 942],
+  },
+  여자: {
+    wage:    [9163, 9085, 9476, 9788,10027,10235,10460,10561],
+    regular: [5038, 4994, 4985, 5285, 5462, 5392, 5543, 5597],
+    nonreg:  [4125, 4091, 4491, 4503, 4565, 4844, 4918, 4963],
+    ratio:   [45.0, 45.0, 47.4, 46.0, 45.5, 47.3, 47.0, 47.0],
+    hanse:   [2547, 2529, 2938, 2980, 2910, 3158, 3278, 3329],
+    sigan:   [2310, 2337, 2502, 2562, 2731, 3016, 3042, 3136],
+    bijeon:  [920,  861,  936,  922,  866,  838,  828,  844],
+  }
+};
+
+const AGE = {
+  labels: ['15-19세','20-29세','30-39세','40-49세','50-59세','60세이상'],
+  data2019:[2.0,18.2,14.8,18.0,21.0,25.9],
+  data2026:[1.6,15.5,13.6,13.7,19.0,36.7],
+  trend: {
+    '15-19세': [2.0,1.9,1.8,1.9,1.9,1.7,1.3,1.6],
+    '20-29세': [18.2,17.3,17.5,17.3,17.5,17.3,16.7,15.5],
+    '30-39세': [14.8,13.8,12.6,12.0,12.2,12.7,13.3,13.6],
+    '40-49세': [18.0,17.6,17.6,16.2,16.1,15.5,14.1,13.7],
+    '50-59세': [21.0,20.8,20.7,21.1,20.0,19.6,19.1,19.0],
+    '60세이상': [25.9,28.7,29.8,31.3,32.2,33.2,35.5,36.7],
+  }
+};
+
+const INDUSTRY = {
+  labels: ['보건사회복지업','사업시설지원업','숙박음식업','건설업','도소매업','교육서비스','제조업','운수창고업','공공행정','금융보험업'],
+  data2019:[13.1,11.6,10.2,11.4,9.4,8.4,8.9,2.9,5.0,3.7],
+  data2026:[21.5,9.8,9.9,7.8,8.1,8.0,7.7,4.0,4.3,4.1],
+};
+
+const JOB = {
+  labels: ['단순노무','서비스·판매','관리자·전문가','기능·기계조작','사무 종사자','농림어업숙련'],
+  data2019:[24.3,26.0,16.2,21.7,11.4,0.5],
+  data2026:[27.6,27.1,17.7,16.9,10.4,0.3],
+};
+
+const WORKCOND = {
+  근속기간: { unit:'개월', 임금:[71,72,70,72,74,76,78,80], 정규:[94,97,96,97,98,103,105,108], 비정규:[29,29,29,30,32,34,35,36] },
+  취업시간: { unit:'시간', 임금:[35.9,37.1,35.4,34.7,33.9,32.4,33.4,36.2], 정규:[38.8,40.7,38.7,37.8,36.9,35.4,36.5,40.4], 비정규:[30.8,30.7,30.2,29.6,28.7,27.6,28.2,29.5] },
+  월평균임금: { unit:'만원', 임금:[264.3,268.1,273.4,288,300.7,312.8,320.5,330.5], 정규:[316.5,323.4,333.6,348,362.3,379.6,389.6,405.2], 비정규:[172.9,171.1,176.9,188.1,195.7,204.8,208.8,211.2] },
+  국민연금: { unit:'%', 임금:[69.5,69.8,69.4,70,69.6,68.8,68.5,68.5], 정규:[87.5,88,88.8,89.1,88,88.1,87.9,88.6], 비정규:[37.9,37.8,38.4,38.3,38.4,37.5,37.1,36.5] },
+  건강보험: { unit:'%', 임금:[75.7,76.7,77,78.5,78.9,78.6,79,79.3], 정규:[91.5,92.6,93.6,94.5,94.3,95,95,95.7], 비정규:[48,49,50.3,51.7,52.6,52.2,53.2,53] },
+  고용보험: { unit:'%', 임금:[70.9,72.6,75.2,77,77,77,76.2,77], 정규:[87.2,89.2,90.9,92.2,91.9,92.3,91.8,93], 비정규:[44.9,46.1,52.6,54,54.2,54.7,53.7,54] },
+  퇴직급여: { unit:'%', 임금:[74,73.2,74,74.9,76.3,76.8,76.6,76.7], 정규:[91.7,91.9,93.5,94,94.5,95.6,95.6,96.2], 비정규:[42.9,40.4,42.7,43,45.3,46.4,46,45.7] },
+  상여금:   { unit:'%', 임금:[68.8,68.8,67.1,69.9,70.1,70.3,70.2,70.1], 정규:[86.4,86.6,86.7,88.8,88.1,89,89,89.5], 비정규:[38.2,37.6,35.7,38.5,39.4,40.1,39.7,39.2] },
+  시간외수당:{ unit:'%', 임금:[48.2,50,50.6,53,54,54.6,54.6,55], 정규:[60.9,62.8,64.9,67.5,67.8,68.7,69.1,69.9], 비정규:[25.9,27.5,27.6,28.9,30.5,31.8,31.2,31.1] },
+  유급휴가:  { unit:'%', 임금:[62.9,64.6,64.7,66.3,67.7,68.5,68.8,69.1], 정규:[79.9,81.6,82.4,83.3,84,84.8,84.9,85.6], 비정규:[34.1,35.1,36.5,37.6,40.1,41.4,41.1,41.4] },
+};
+
+const REGION = [
+  {시도:'전국', w25:22413,r25:13845,n25:8568, w26:22526,r26:13855,n26:8671, dw:113,dr:10,dn:103},
+  {시도:'서울', w25:4375,r25:2696,n25:1679,   w26:4326,r26:2672,n26:1654,  dw:-50,dr:-24,dn:-26},
+  {시도:'경기', w25:6320,r25:4180,n25:2140,   w26:6403,r26:4230,n26:2173,  dw:83,dr:50,dn:33},
+  {시도:'부산', w25:1383,r25:830,n25:553,     w26:1386,r26:808,n26:578,    dw:3,dr:-22,dn:25},
+  {시도:'인천', w25:1384,r25:851,n25:533,     w26:1429,r26:847,n26:582,    dw:45,dr:-3,dn:48},
+  {시도:'경남', w25:1278,r25:798,n25:480,     w26:1273,r26:819,n26:454,    dw:-5,dr:21,dn:-26},
+  {시도:'대구', w25:913,r25:561,n25:353,      w26:908,r26:540,n26:368,     dw:-5,dr:-21,dn:16},
+  {시도:'충남', w25:938,r25:566,n25:373,      w26:975,r26:608,n26:367,     dw:37,dr:42,dn:-6},
+  {시도:'전남', w25:631,r25:316,n25:315,      w26:627,r26:325,n26:303,     dw:-4,dr:9,dn:-12},
+  {시도:'경북', w25:978,r25:592,n25:386,      w26:960,r26:565,n26:396,     dw:-18,dr:-27,dn:10},
+  {시도:'전북', w25:693,r25:405,n25:288,      w26:685,r26:397,n26:289,     dw:-8,dr:-8,dn:0},
+  {시도:'광주', w25:633,r25:354,n25:278,      w26:633,r26:360,n26:272,     dw:0,dr:6,dn:-6},
+  {시도:'대전', w25:643,r25:385,n25:258,      w26:648,r26:371,n26:278,     dw:6,dr:-15,dn:20},
+  {시도:'강원', w25:611,r25:294,n25:318,      w26:621,r26:317,n26:304,     dw:10,dr:24,dn:-14},
+  {시도:'충북', w25:705,r25:428,n25:277,      w26:706,r26:425,n26:281,     dw:2,dr:-2,dn:4},
+  {시도:'울산', w25:478,r25:305,n25:173,      w26:485,r26:290,n26:195,     dw:7,dr:-15,dn:22},
+  {시도:'세종', w25:177,r25:124,n25:53,       w26:183,r26:126,n26:57,      dw:6,dr:2,dn:4},
+  {시도:'제주', w25:274,r25:162,n25:112,      w26:278,r26:156,n26:122,     dw:5,dr:-6,dn:10},
+];
+
+// ═══════════════════════════════════════════════
+//  COLORS
+// ═══════════════════════════════════════════════
+const C = {
+  primary:   '#1e3a5f',
+  secondary: '#2e6da4',
+  regular:   '#2196F3',
+  nonreg:    '#FF5722',
+  hanse:     '#FF9800',
+  sigan:     '#9C27B0',
+  bijeon:    '#009688',
+  male:      '#1565C0',
+  female:    '#AD1457',
+  alpha: (hex, a) => {
+    const r=parseInt(hex.slice(1,3),16);
+    const g=parseInt(hex.slice(3,5),16);
+    const b=parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+};
+const PALETTE = ['#1e3a5f','#2196F3','#FF5722','#FF9800','#9C27B0','#009688','#4CAF50','#E91E63','#607D8B','#795548'];
+
+// default Chart.js config
+Chart.defaults.font.family = "'Malgun Gothic','맑은 고딕',sans-serif";
+Chart.defaults.font.size   = 11;
+Chart.defaults.color       = '#6b7a90';
+Chart.defaults.plugins.legend.position = 'bottom';
+
+function fmt(v){ return typeof v==='number'? v.toLocaleString('ko-KR') : v; }
+
+// ═══════════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════════
+let chartsBuilt = {};
+function showTab(name){
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(!chartsBuilt[name]){ buildCharts(name); chartsBuilt[name]=true; }
+}
+
+// ═══════════════════════════════════════════════
+//  BUILD CHARTS BY TAB
+// ═══════════════════════════════════════════════
+function buildCharts(tab){
+  if(tab==='overview')   buildOverview();
+  if(tab==='trend')      buildTrend();
+  if(tab==='structure')  buildStructure();
+  if(tab==='workcond')   buildWorkcond();
+  if(tab==='region')     buildRegion();
+}
+
+// ───── OVERVIEW ─────
+function buildOverview(){
+  // 비정규직 추이 (막대+선)
+  new Chart(document.getElementById('ch_overview_trend'),{
+    data:{
+      labels: YEARS,
+      datasets:[
+        {type:'bar', label:'정규직', data:TREND.전체.regular, backgroundColor:C.alpha(C.regular,0.7), stack:'s'},
+        {type:'bar', label:'비정규직', data:TREND.전체.nonreg, backgroundColor:C.alpha(C.nonreg,0.8), stack:'s'},
+        {type:'line', label:'비정규직 비중(%)', data:TREND.전체.ratio, borderColor:'#FF5722', backgroundColor:'transparent',
+         yAxisID:'y2', tension:0.3, pointRadius:4, pointBackgroundColor:'#FF5722', borderWidth:2.5}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{grid:{display:false}},
+        y:{title:{display:true,text:'천명'}, stacked:true},
+        y2:{position:'right', title:{display:true,text:'%'}, grid:{display:false}, min:30, max:45}
+      },
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+
+  // 성별 근로형태 (가로 막대)
+  new Chart(document.getElementById('ch_gender_bar'),{
+    type:'bar',
+    data:{
+      labels:['전체','남자','여자'],
+      datasets:[
+        {label:'정규직', data:[13855,8258,5597], backgroundColor:C.alpha(C.regular,0.8)},
+        {label:'비정규직', data:[8671,3708,4963], backgroundColor:C.alpha(C.nonreg,0.8)},
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true,
+      scales:{x:{stacked:true}, y:{stacked:true, grid:{display:false}}},
+      plugins:{
+        legend:{position:'bottom'},
+        datalabels:{
+          display:true,
+          formatter:(v)=>v.toLocaleString(),
+          color:'#fff', font:{weight:'bold',size:10},
+          anchor:'center', align:'center'
+        }
+      }
+    }
+  });
+
+  // 비정규직 유형 추이
+  new Chart(document.getElementById('ch_type_trend'),{
+    type:'line',
+    data:{
+      labels:YEARS,
+      datasets:[
+        {label:'한시적', data:TREND.전체.hanse, borderColor:C.hanse, backgroundColor:C.alpha(C.hanse,0.1), tension:0.3, fill:false, pointRadius:4},
+        {label:'시간제', data:TREND.전체.sigan, borderColor:C.sigan, backgroundColor:C.alpha(C.sigan,0.1), tension:0.3, fill:false, pointRadius:4},
+        {label:'비전형', data:TREND.전체.bijeon, borderColor:C.bijeon, backgroundColor:C.alpha(C.bijeon,0.1), tension:0.3, fill:false, pointRadius:4},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{y:{title:{display:true,text:'천명'}}},
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+
+  // 임금 비교 (2026)
+  new Chart(document.getElementById('ch_wage_compare'),{
+    type:'bar',
+    data:{
+      labels:['임금근로자','정규직','비정규직'],
+      datasets:[{
+        label:'월평균임금 (만원)',
+        data:[330.5, 405.2, 211.2],
+        backgroundColor:[C.alpha(C.secondary,0.8), C.alpha(C.regular,0.85), C.alpha(C.nonreg,0.85)],
+        borderRadius:6
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{y:{title:{display:true,text:'만원'}, min:0, max:450}},
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          display:true,
+          formatter:(v)=>v.toFixed(1)+'만원',
+          anchor:'end', align:'top', color:'#1a2535', font:{weight:'bold',size:12}
+        }
+      }
+    }
+  });
+}
+
+// ───── TREND ─────
+let trendChart = null;
+function buildTrend(){
+  updateTrendChart();
+  
+  // 비정규직 비중 성별 비교
+  new Chart(document.getElementById('ch_ratio_gender'),{
+    type:'line',
+    data:{
+      labels:YEARS,
+      datasets:[
+        {label:'전체', data:TREND.전체.ratio, borderColor:C.primary, tension:0.3, pointRadius:4, borderWidth:2.5},
+        {label:'남자', data:TREND.남자.ratio, borderColor:C.male, tension:0.3, pointRadius:4, borderDash:[5,3]},
+        {label:'여자', data:TREND.여자.ratio, borderColor:C.female, tension:0.3, pointRadius:4, borderDash:[5,3]},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{y:{title:{display:true,text:'%'}, min:25, max:52}},
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+
+  // 비정규직 연도별 증감
+  const deltas = TREND.전체.nonreg.slice(1).map((v,i)=>v-TREND.전체.nonreg[i]);
+  new Chart(document.getElementById('ch_nonreg_delta'),{
+    type:'bar',
+    data:{
+      labels:YEARS.slice(1),
+      datasets:[{
+        label:'전년대비 증감(천명)',
+        data:deltas,
+        backgroundColor:deltas.map(v=>v>=0?C.alpha(C.nonreg,0.75):C.alpha('#43a047',0.75)),
+        borderRadius:5
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{y:{title:{display:true,text:'천명'}}},
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          display:true,
+          formatter:(v)=>(v>0?'+':'')+v,
+          anchor:'end', align:(ctx)=>ctx.dataset.data[ctx.dataIndex]>=0?'top':'bottom',
+          color:'#1a2535', font:{weight:'bold', size:11}
+        }
+      }
+    }
+  });
+
+  // 테이블
+  const tbody = document.getElementById('trend_table');
+  YEARS.forEach((yr,i)=>{
+    const tr = tbody.insertRow();
+    [yr,
+     fmt(TREND.전체.wage[i]),
+     fmt(TREND.전체.regular[i]),
+     fmt(TREND.전체.nonreg[i]),
+     TREND.전체.ratio[i]+'%',
+     fmt(TREND.전체.hanse[i]),
+     fmt(TREND.전체.sigan[i]),
+     fmt(TREND.전체.bijeon[i])
+    ].forEach((v,j)=>{
+      const td = tr.insertCell();
+      td.textContent = v;
+      if(j===0) td.style.textAlign='center';
+    });
+  });
+}
+
+function updateTrendChart(){
+  const g = document.getElementById('genderFilter').value;
+  const d = TREND[g];
+  if(trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('ch_trend_main'),{
+    data:{
+      labels:YEARS,
+      datasets:[
+        {type:'bar', label:'정규직(천명)', data:d.regular, backgroundColor:C.alpha(C.regular,0.7), stack:'s', yAxisID:'y'},
+        {type:'bar', label:'비정규직(천명)', data:d.nonreg, backgroundColor:C.alpha(C.nonreg,0.8), stack:'s', yAxisID:'y'},
+        {type:'line', label:'비정규직비중(%)', data:d.ratio, borderColor:C.nonreg, backgroundColor:'transparent',
+         yAxisID:'y2', tension:0.3, pointRadius:5, pointBackgroundColor:C.nonreg, borderWidth:2.5}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true, aspectRatio:3,
+      scales:{
+        x:{grid:{display:false}},
+        y:{stacked:true, title:{display:true,text:'천명'}},
+        y2:{position:'right', title:{display:true,text:'%'}, grid:{display:false}, min:25, max:52}
+      },
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+}
+
+// ───── STRUCTURE ─────
+function buildStructure(){
+  // 연령 추이 선그래프
+  const ageColors=['#e91e63','#9c27b0','#2196f3','#4caf50','#ff9800','#f44336'];
+  new Chart(document.getElementById('ch_age_trend'),{
+    type:'line',
+    data:{
+      labels:YEARS,
+      datasets: AGE.labels.map((lb,i)=>({
+        label:lb, data:AGE.trend[lb],
+        borderColor:ageColors[i], backgroundColor:'transparent',
+        tension:0.3, pointRadius:3, borderWidth: lb==='60세이상'?3:1.5,
+        borderDash: lb==='60세이상'?[]:[4,3]
+      }))
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{y:{title:{display:true,text:'%'}, min:0, max:40}},
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+
+  // 2026 연령 도넛
+  new Chart(document.getElementById('ch_age_donut'),{
+    type:'doughnut',
+    data:{
+      labels:AGE.labels,
+      datasets:[{data:AGE.data2026, backgroundColor:ageColors, hoverOffset:8}]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{
+        legend:{position:'right'},
+        datalabels:{
+          display:true,
+          formatter:(v,ctx)=>ctx.chart.data.labels[ctx.dataIndex]+'\n'+v+'%',
+          color:'#fff', font:{weight:'bold',size:9},
+        }
+      }
+    }
+  });
+
+  // 산업별 비교 (가로 막대)
+  new Chart(document.getElementById('ch_industry'),{
+    type:'bar',
+    data:{
+      labels:INDUSTRY.labels,
+      datasets:[
+        {label:'2019년', data:INDUSTRY.data2019, backgroundColor:C.alpha(C.secondary,0.6), borderRadius:3},
+        {label:'2026년', data:INDUSTRY.data2026, backgroundColor:C.alpha(C.nonreg,0.8), borderRadius:3},
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true,
+      scales:{x:{title:{display:true,text:'%'}}, y:{grid:{display:false}}},
+      plugins:{
+        legend:{position:'bottom'},
+        datalabels:{
+          display:true,
+          formatter:(v)=>v+'%',
+          anchor:'end', align:'right', color:'#1a2535', font:{size:9}
+        }
+      }
+    }
+  });
+
+  // 직업별 2026 도넛
+  const jobColors=['#1e3a5f','#2196F3','#FF5722','#FF9800','#9C27B0','#4CAF50'];
+  new Chart(document.getElementById('ch_job_2026'),{
+    type:'doughnut',
+    data:{
+      labels:JOB.labels,
+      datasets:[{data:JOB.data2026, backgroundColor:jobColors, hoverOffset:8}]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{
+        legend:{position:'right'},
+        datalabels:{
+          display:true,
+          formatter:(v,ctx)=>v+'%',
+          color:'#fff', font:{weight:'bold',size:10}
+        }
+      }
+    }
+  });
+
+  // 직업별 2019 vs 2026 비교
+  new Chart(document.getElementById('ch_job_compare'),{
+    type:'bar',
+    data:{
+      labels:JOB.labels,
+      datasets:[
+        {label:'2019년', data:JOB.data2019, backgroundColor:C.alpha(C.secondary,0.65), borderRadius:3},
+        {label:'2026년', data:JOB.data2026, backgroundColor:C.alpha(C.nonreg,0.8), borderRadius:3},
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true,
+      scales:{x:{title:{display:true,text:'%'}}, y:{grid:{display:false}}},
+      plugins:{
+        legend:{position:'bottom'},
+        datalabels:{display:false}
+      }
+    }
+  });
+}
+
+// ───── WORKCOND ─────
+function buildWorkcond(){
+  // 임금 추이
+  new Chart(document.getElementById('ch_wage_trend'),{
+    type:'line',
+    data:{
+      labels:YEARS,
+      datasets:[
+        {label:'임금근로자', data:WORKCOND.월평균임금.임금, borderColor:C.primary, tension:0.3, pointRadius:4, borderWidth:2},
+        {label:'정규직',   data:WORKCOND.월평균임금.정규, borderColor:C.regular, tension:0.3, pointRadius:4, borderWidth:2},
+        {label:'비정규직', data:WORKCOND.월평균임금.비정규, borderColor:C.nonreg, tension:0.3, pointRadius:4, borderWidth:2},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{y:{title:{display:true,text:'만원'}}},
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+
+  // 근속기간 추이
+  new Chart(document.getElementById('ch_tenure'),{
+    type:'line',
+    data:{
+      labels:YEARS,
+      datasets:[
+        {label:'임금근로자', data:WORKCOND.근속기간.임금, borderColor:C.primary, tension:0.3, pointRadius:4},
+        {label:'정규직',   data:WORKCOND.근속기간.정규, borderColor:C.regular, tension:0.3, pointRadius:4, borderDash:[5,3]},
+        {label:'비정규직', data:WORKCOND.근속기간.비정규, borderColor:C.nonreg, tension:0.3, pointRadius:4, borderDash:[5,3]},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{y:{title:{display:true,text:'개월'}}},
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+
+  // 사회보험 가입률 2026 비교
+  new Chart(document.getElementById('ch_insurance_2026'),{
+    type:'bar',
+    data:{
+      labels:['국민연금','건강보험','고용보험'],
+      datasets:[
+        {label:'임금근로자', data:[68.5,79.3,77.0], backgroundColor:C.alpha(C.primary,0.7), borderRadius:5},
+        {label:'정규직',   data:[88.6,95.7,93.0], backgroundColor:C.alpha(C.regular,0.8), borderRadius:5},
+        {label:'비정규직', data:[36.5,53.0,54.0], backgroundColor:C.alpha(C.nonreg,0.8), borderRadius:5},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{y:{title:{display:true,text:'%'}, min:0, max:105}, x:{grid:{display:false}}},
+      plugins:{
+        legend:{position:'bottom'},
+        datalabels:{
+          display:true,
+          formatter:(v)=>v+'%',
+          anchor:'end', align:'top', font:{size:10, weight:'bold'}, color:'#1a2535'
+        }
+      }
+    }
+  });
+
+  // 고용보험 추이
+  new Chart(document.getElementById('ch_employment_ins'),{
+    type:'line',
+    data:{
+      labels:YEARS,
+      datasets:[
+        {label:'정규직', data:WORKCOND.고용보험.정규, borderColor:C.regular, tension:0.3, pointRadius:4, borderWidth:2},
+        {label:'비정규직', data:WORKCOND.고용보험.비정규, borderColor:C.nonreg, tension:0.3, pointRadius:4, borderWidth:2},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{y:{title:{display:true,text:'%'}, min:40, max:100}},
+      plugins:{legend:{position:'bottom'}}
+    }
+  });
+
+  // 근로복지 수혜율 2026 (레이더)
+  new Chart(document.getElementById('ch_welfare'),{
+    type:'bar',
+    data:{
+      labels:['퇴직급여','상여금','시간외수당','유급휴가'],
+      datasets:[
+        {label:'정규직',   data:[96.2,89.5,69.9,85.6], backgroundColor:C.alpha(C.regular,0.75), borderRadius:5},
+        {label:'비정규직', data:[45.7,39.2,31.1,41.4], backgroundColor:C.alpha(C.nonreg,0.75), borderRadius:5},
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true,
+      scales:{x:{title:{display:true,text:'%'}, min:0, max:110}, y:{grid:{display:false}}},
+      plugins:{
+        legend:{position:'bottom'},
+        datalabels:{
+          display:true,
+          formatter:(v)=>v+'%',
+          anchor:'end', align:'right', font:{size:10, weight:'bold'}, color:'#1a2535'
+        }
+      }
+    }
+  });
+
+  // 테이블
+  const condKeys = ['근속기간','취업시간','월평균임금','국민연금','건강보험','고용보험','퇴직급여','상여금','시간외수당','유급휴가'];
+  const condLabel= ['평균 근속기간','평균 취업시간','월평균임금','국민연금 가입률','건강보험 가입률','고용보험 가입률','퇴직급여 수혜율','상여금 수혜율','시간외수당 수혜율','유급휴가 수혜율'];
+  const tbody = document.getElementById('workcond_table');
+  condKeys.forEach((k,i)=>{
+    const c = WORKCOND[k];
+    const w=c.임금[7], r=c.정규[7], n=c.비정규[7];
+    const ratio = (n/r*100).toFixed(1)+'%';
+    const tr = tbody.insertRow();
+    [condLabel[i], c.unit, w, r, n, ratio].forEach((v,j)=>{
+      const td = tr.insertCell();
+      td.textContent = typeof v==='number'? v.toLocaleString('ko-KR') : v;
+      if(j>1) td.style.textAlign='right';
+    });
+  });
+}
+
+// ───── REGION ─────
+function buildRegion(){
+  const rData = REGION.filter(r=>r.시도!=='전국');
+  const labels = rData.map(r=>r.시도);
+
+  // 시도별 규모 비교 (그룹 가로 막대)
+  new Chart(document.getElementById('ch_region_bar'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'임금근로자', data:rData.map(r=>r.w26), backgroundColor:C.alpha(C.primary,0.6), borderRadius:3},
+        {label:'정규직',   data:rData.map(r=>r.r26), backgroundColor:C.alpha(C.regular,0.75), borderRadius:3},
+        {label:'비정규직', data:rData.map(r=>r.n26), backgroundColor:C.alpha(C.nonreg,0.8), borderRadius:3},
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true,
+      scales:{x:{title:{display:true,text:'천명'}}, y:{grid:{display:false}}},
+      plugins:{legend:{position:'bottom'}, datalabels:{display:false}}
+    }
+  });
+
+  // 비정규직 비율
+  const ratios = rData.map(r=>(r.n26/r.w26*100).toFixed(1));
+  const ratioColors = ratios.map(v=>parseFloat(v)>38.5?C.alpha(C.nonreg,0.8):C.alpha(C.secondary,0.75));
+  new Chart(document.getElementById('ch_region_ratio'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label:'비정규직 비율(%)',
+        data:ratios,
+        backgroundColor:ratioColors,
+        borderRadius:4
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{title:{display:true,text:'%'}, min:28, max:55},
+        y:{grid:{display:false}}
+      },
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          display:true,
+          formatter:(v)=>v+'%',
+          anchor:'end', align:'right', font:{size:10,weight:'bold'}, color:'#1a2535'
+        }
+      }
+    }
+  });
+
+  // 비정규직 증감
+  const deltas = rData.map(r=>r.dn);
+  new Chart(document.getElementById('ch_region_delta'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label:'비정규직 증감(천명)',
+        data:deltas,
+        backgroundColor:deltas.map(v=>v>0?C.alpha(C.nonreg,0.8):C.alpha('#43a047',0.75)),
+        borderRadius:4
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true,
+      scales:{y:{grid:{display:false}}},
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          display:true,
+          formatter:(v)=>(v>0?'+':'')+v+'천',
+          anchor:'end', align:(ctx)=>ctx.dataset.data[ctx.dataIndex]>=0?'right':'left',
+          font:{size:10,weight:'bold'}, color:'#1a2535'
+        }
+      }
+    }
+  });
+
+  // 테이블
+  const tbody = document.getElementById('region_table');
+  REGION.forEach(r=>{
+    const ratio26 = (r.n26/r.w26*100).toFixed(1);
+    const tr = tbody.insertRow();
+    [r.시도, fmt(r.w25),fmt(r.r25),fmt(r.n25),
+     fmt(r.w26),fmt(r.r26),fmt(r.n26),
+     r.dw,r.dr,r.dn, ratio26+'%'
+    ].forEach((v,j)=>{
+      const td = tr.insertCell();
+      td.textContent = v;
+      if(j>=7 && j<=9){
+        const num=Number(v);
+        if(!isNaN(num)&&num>0) td.className='pos';
+        else if(!isNaN(num)&&num<0) td.className='neg';
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  INIT — build overview immediately
+// ═══════════════════════════════════════════════
+Chart.register(ChartDataLabels);
+buildCharts('overview');
+chartsBuilt['overview']=true;
+</script>
+</body>
+</html>
